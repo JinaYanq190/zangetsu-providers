@@ -1,17 +1,17 @@
-// Provider AnimeFLV para Zangetsu
-var SOURCE_ID = 'animeflv';
-var SITE = 'https://animeflv.or.at';
+// Provider Jkanime para Zangetsu
+var SOURCE_ID = 'jkanime';
+var SITE = 'https://jkanime.net';
 var REFERER = SITE + '/';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 function getInfo() {
     return {
-        name: 'AnimeFLV',
+        name: 'Jkanime',
         lang: 'es',
         baseUrl: SITE,
-        logo: SITE + '/wp-content/uploads/2026/06/cropped-animeflv-logo-new.jpg',
+        logo: SITE + '/images/logo.png',
         type: 'anime',
-        version: '1.0.1'
+        version: '1.0.0'
     };
 }
 
@@ -21,16 +21,13 @@ function _headers() {
         'User-Agent': UA,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1'
+        'Connection': 'keep-alive'
     };
 }
 
 function search(query, page, opts) {
     var q = String(query || '').toLowerCase();
-    var url = SITE + '/?s=' + encodeURIComponent(q) + '&post_type=post';
-    if (page > 1) url += '&paged=' + page;
+    var url = SITE + '/buscar/' + encodeURIComponent(q) + '/' + (page || 1);
     
     return fetch(url, { headers: _headers() })
     .then(function(response) { return response.text(); })
@@ -39,16 +36,15 @@ function search(query, page, opts) {
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
-        var articles = doc.querySelectorAll('article, .post, .ht_grid_1_4, .ht_grid_1_5, .Episode');
+        var articles = doc.querySelectorAll('.anime-item, .list-anime .anime, article');
         articles.forEach(function(article) {
-            var link = article.querySelector('a[href*="/anime/"], a[href*="/202"]');
-            var title = article.querySelector('h2, h3, .Title, .entry-title');
+            var link = article.querySelector('a[href*="/anime/"]');
+            var title = article.querySelector('h3, .title, .anime-title');
             var img = article.querySelector('img');
             
             if (link && title) {
                 var href = link.getAttribute('href');
                 var fullUrl = href.startsWith('http') ? href : SITE + href;
-                var isEpisode = href.includes('/202');
                 
                 items.push({
                     id: href.split('/').pop(),
@@ -56,7 +52,7 @@ function search(query, page, opts) {
                     cover: img ? img.getAttribute('src') || img.getAttribute('data-src') : '',
                     coverHeaders: { Referer: REFERER },
                     url: fullUrl,
-                    type: isEpisode ? 'episode' : 'anime',
+                    type: 'anime',
                     sourceId: SOURCE_ID
                 });
             }
@@ -74,10 +70,11 @@ function getHome(opts) {
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
-        var episodes = doc.querySelectorAll('.List-Episodes .Episode, .List-Episodes .ht_grid_1_4, .Episode');
+        // Últimos episodios agregados
+        var episodes = doc.querySelectorAll('.episode-item, .list-episodes .episode, article');
         episodes.forEach(function(ep) {
-            var link = ep.querySelector('a');
-            var title = ep.querySelector('.Title, h2, .entry-title');
+            var link = ep.querySelector('a[href*="/ver/"]');
+            var title = ep.querySelector('.title, h3, .episode-title');
             var img = ep.querySelector('img');
             
             if (link) {
@@ -97,11 +94,12 @@ function getHome(opts) {
             }
         });
         
+        // Si no hay episodios, buscar animes populares
         if (items.length === 0) {
-            var links = doc.querySelectorAll('#left-menu .sidebar-cat-item a, .left-navigation a');
-            links.forEach(function(link) {
+            var animeLinks = doc.querySelectorAll('.anime-popular a, .popular-anime a');
+            animeLinks.forEach(function(link) {
                 var href = link.getAttribute('href');
-                var title = link.querySelector('.sidebar-cat-name') || link;
+                var title = link.querySelector('.title') || link;
                 if (href && href.includes('/anime/')) {
                     items.push({
                         id: href.split('/').pop(),
@@ -130,9 +128,9 @@ function getDetail(url) {
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
-        var title = doc.querySelector('.anime-title, h1, .Title, .entry-title, .Ficha .Title');
-        var description = doc.querySelector('.anime-synopsis p, .Description, .sinopsis, .Ficha .Description');
-        var cover = doc.querySelector('.poster-image, .anime-poster img, .Image img, .AnimeCover .Image img');
+        var title = doc.querySelector('h1, .anime-title, .title');
+        var description = doc.querySelector('.description, .sinopsis, .anime-description');
+        var cover = doc.querySelector('.anime-cover img, .poster img, .cover img');
         var coverUrl = cover ? cover.getAttribute('src') : '';
         if (!coverUrl) {
             var metaCover = doc.querySelector('meta[property="og:image"]');
@@ -140,7 +138,7 @@ function getDetail(url) {
         }
         
         var genres = [];
-        var genreElements = doc.querySelectorAll('.genre-tag, .genres a, .genre a, .generos a');
+        var genreElements = doc.querySelectorAll('.genres a, .genre a, .generos a, .tags a');
         genreElements.forEach(function(g) {
             var text = g.textContent.trim();
             if (text) genres.push(text);
@@ -178,38 +176,20 @@ function getEpisodes(seriesUrl) {
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
-        var scriptData = doc.querySelector('.animeflv-episodes-data');
-        if (scriptData) {
-            try {
-                var data = JSON.parse(scriptData.textContent);
-                data.forEach(function(ep) {
-                    episodes.push({
-                        id: ep.post_id + '',
-                        title: 'Episodio ' + ep.number,
-                        number: ep.number,
-                        url: ep.permalink,
-                        date: ''
-                    });
+        var epLinks = doc.querySelectorAll('.episode-list a, .episodes a, .lista-episodios a');
+        epLinks.forEach(function(link) {
+            var href = link.getAttribute('href');
+            var num = link.textContent.trim().match(/\d+/);
+            if (href && href.includes('/ver/')) {
+                episodes.push({
+                    id: href.split('/').pop(),
+                    title: 'Episodio ' + (num ? num[0] : '?'),
+                    number: num ? parseInt(num[0]) : 0,
+                    url: href.startsWith('http') ? href : SITE + href,
+                    date: ''
                 });
-            } catch(e) {}
-        }
-        
-        if (episodes.length === 0) {
-            var epLinks = doc.querySelectorAll('.episodes-grid .episode-number a, .ListCaps a, .episode a');
-            epLinks.forEach(function(link) {
-                var href = link.getAttribute('href');
-                var num = link.textContent.trim();
-                if (href && num && !isNaN(num)) {
-                    episodes.push({
-                        id: href.split('/').pop(),
-                        title: 'Episodio ' + num,
-                        number: parseInt(num) || 0,
-                        url: href.startsWith('http') ? href : SITE + href,
-                        date: ''
-                    });
-                }
-            });
-        }
+            }
+        });
         
         episodes.sort(function(a, b) { return a.number - b.number; });
         return episodes;
@@ -224,40 +204,34 @@ function getVideoSources(episodeUrl) {
         var doc = parser.parseFromString(html, 'text/html');
         var sources = [];
         
-        var serverButtons = doc.querySelectorAll('.iframe_code[data-src]');
-        serverButtons.forEach(function(button) {
-            var encoded = button.getAttribute('data-src');
-            var label = button.textContent.trim() || 'Servidor';
-            if (encoded) {
-                try {
-                    var decoded = atob(encoded);
-                    if (decoded && (decoded.startsWith('http://') || decoded.startsWith('https://'))) {
-                        sources.push({
-                            url: decoded,
-                            quality: 'default',
-                            type: 'embed',
-                            label: label
-                        });
-                    }
-                } catch(e) {}
-            }
-        });
-        
-        if (sources.length === 0) {
-            var iframe = doc.querySelector('#load, iframe[src]');
-            if (iframe) {
-                var src = iframe.getAttribute('src');
-                if (src) {
-                    sources.push({
-                        url: src,
-                        quality: 'default',
-                        type: 'embed',
-                        label: 'Servidor'
-                    });
-                }
+        // Buscar iframe del reproductor
+        var iframe = doc.querySelector('iframe[src*="player"], iframe[src*="embed"], iframe[src*="mega"]');
+        if (iframe) {
+            var src = iframe.getAttribute('src');
+            if (src) {
+                sources.push({
+                    url: src,
+                    quality: 'default',
+                    type: 'embed',
+                    label: 'Servidor'
+                });
             }
         }
         
+        // Buscar enlaces de video
+        var videoLinks = doc.querySelectorAll('source, video source, a[href*=".mp4"], a[href*=".m3u8"]');
+        videoLinks.forEach(function(link) {
+            var src = link.getAttribute('src') || link.getAttribute('href');
+            if (src) {
+                sources.push({
+                    url: src,
+                    quality: 'default',
+                    type: src.includes('.m3u8') ? 'hls' : 'mp4',
+                    label: 'Video'
+                });
+            }
+        });
+        
         return sources;
     });
-                    }
+                }
