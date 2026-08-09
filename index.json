@@ -3,12 +3,12 @@
   "description": "Streaming sources for the Zangetsu app.",
   "sources": [
     {
-      "id": "jkanime",
-      "name": "Jkanime",
-      "version": "1.0.0",
+      "id": "tioanime",
+      "name": "TioAnime",
+      "version": "1.0.1",
       "type": "anime",
       "lang": "es",
-      "file": "providers/jkanime.js"
+      "file": "providers/tioanime.js"
     }
   ]
 }
