@@ -1,14 +1,10 @@
-{
-    "repo_name": "AnimeFLV Provider",
-    "repo_version": "1.0.0",
-    "sources": [
-        {
-            "id": "animeflv",
-            "name": "AnimeFLV",
-            "lang": "es",
-            "type": "anime",
-            "version": "1.0.0",
-            "url": "https://raw.githubusercontent.com/Jinayang190/zangetsu-providers/main/animeflv.js"
-        }
-    ]
-}
+[
+    {
+        "id": "animeflv",
+        "name": "AnimeFLV",
+        "lang": "es",
+        "type": "anime",
+        "version": "1.0.0",
+        "url": "https://raw.githubusercontent.com/Jinayang190/zangetsu-providers/main/animeflv.js"
+    }
+]
