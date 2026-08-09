@@ -2,6 +2,7 @@
 var SOURCE_ID = 'animeflv';
 var SITE = 'https://animeflv.or.at';
 var REFERER = SITE + '/';
+var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 function getInfo() {
     return {
@@ -10,7 +11,19 @@ function getInfo() {
         baseUrl: SITE,
         logo: SITE + '/wp-content/uploads/2026/06/cropped-animeflv-logo-new.jpg',
         type: 'anime',
-        version: '1.0.0'
+        version: '1.0.1'
+    };
+}
+
+function _headers() {
+    return {
+        'Referer': REFERER,
+        'User-Agent': UA,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1'
     };
 }
 
@@ -19,9 +32,7 @@ function search(query, page, opts) {
     var url = SITE + '/?s=' + encodeURIComponent(q) + '&post_type=post';
     if (page > 1) url += '&paged=' + page;
     
-    return fetch(url, {
-        headers: { 'Referer': REFERER, 'User-Agent': 'Mozilla/5.0' }
-    })
+    return fetch(url, { headers: _headers() })
     .then(function(response) { return response.text(); })
     .then(function(html) {
         var items = [];
@@ -56,9 +67,7 @@ function search(query, page, opts) {
 }
 
 function getHome(opts) {
-    return fetch(SITE, {
-        headers: { 'Referer': REFERER, 'User-Agent': 'Mozilla/5.0' }
-    })
+    return fetch(SITE, { headers: _headers() })
     .then(function(response) { return response.text(); })
     .then(function(html) {
         var items = [];
@@ -115,9 +124,7 @@ function getHome(opts) {
 }
 
 function getDetail(url) {
-    return fetch(url, {
-        headers: { 'Referer': REFERER, 'User-Agent': 'Mozilla/5.0' }
-    })
+    return fetch(url, { headers: _headers() })
     .then(function(response) { return response.text(); })
     .then(function(html) {
         var parser = new DOMParser();
@@ -164,9 +171,7 @@ function getDetail(url) {
 }
 
 function getEpisodes(seriesUrl) {
-    return fetch(seriesUrl, {
-        headers: { 'Referer': REFERER, 'User-Agent': 'Mozilla/5.0' }
-    })
+    return fetch(seriesUrl, { headers: _headers() })
     .then(function(response) { return response.text(); })
     .then(function(html) {
         var episodes = [];
@@ -212,9 +217,7 @@ function getEpisodes(seriesUrl) {
 }
 
 function getVideoSources(episodeUrl) {
-    return fetch(episodeUrl, {
-        headers: { 'Referer': REFERER, 'User-Agent': 'Mozilla/5.0' }
-    })
+    return fetch(episodeUrl, { headers: _headers() })
     .then(function(response) { return response.text(); })
     .then(function(html) {
         var parser = new DOMParser();
@@ -257,4 +260,4 @@ function getVideoSources(episodeUrl) {
         
         return sources;
     });
-                  }
+            }
