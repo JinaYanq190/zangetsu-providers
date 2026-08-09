@@ -10,7 +10,7 @@ function getInfo() {
         baseUrl: SITE,
         logo: SITE + '/wp-content/uploads/2026/06/cropped-animeflv-logo-new.jpg',
         type: 'anime',
-        version: '1.0.0'
+        version: '1.0.1'
     };
 }
 
@@ -28,7 +28,9 @@ function search(query, page, opts) {
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
-        var articles = doc.querySelectorAll('article, .Episode, .post, .ht_grid_1_4, .ht_grid_1_5');
+        // Buscar resultados de búsqueda
+        var articles = doc.querySelectorAll('article, .post, .ht_grid_1_4, .ht_grid_1_5, .Episode');
+        
         articles.forEach(function(article) {
             var link = article.querySelector('a[href*="/anime/"], a[href*="/202"]');
             var title = article.querySelector('h2, h3, .Title, .entry-title');
@@ -65,18 +67,26 @@ function getHome(opts) {
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
-        var episodes = doc.querySelectorAll('.List-Episodes .Episode, .List-Episodes .ht_grid_1_4');
+        // Buscar episodios recientes - selector más específico
+        var episodes = doc.querySelectorAll('.List-Episodes .Episode, .List-Episodes .ht_grid_1_4, .Episode');
+        
         episodes.forEach(function(ep) {
             var link = ep.querySelector('a');
             var title = ep.querySelector('.Title, h2, .entry-title');
             var img = ep.querySelector('img');
+            var epNumber = ep.querySelector('.ep-number, p span');
             
-            if (link && title) {
+            if (link) {
                 var href = link.getAttribute('href');
                 var fullUrl = href.startsWith('http') ? href : SITE + href;
+                var titleText = title ? title.textContent.trim() : 'Episodio';
+                if (epNumber) {
+                    titleText = 'Episodio ' + epNumber.textContent.trim();
+                }
+                
                 items.push({
                     id: href.split('/').pop(),
-                    title: title.textContent.trim(),
+                    title: titleText,
                     cover: img ? img.getAttribute('src') || img.getAttribute('data-src') : '',
                     coverHeaders: { Referer: REFERER },
                     url: fullUrl,
@@ -86,6 +96,7 @@ function getHome(opts) {
             }
         });
         
+        // Si no hay episodios, buscar animes de la barra lateral
         if (items.length === 0) {
             var links = doc.querySelectorAll('#left-menu .sidebar-cat-item a, .left-navigation a');
             links.forEach(function(link) {
@@ -121,15 +132,21 @@ function getDetail(url) {
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
-        var title = doc.querySelector('.anime-title, h1, .Title, .entry-title');
-        var description = doc.querySelector('.anime-synopsis p, .Description, .sinopsis');
-        var cover = doc.querySelector('.poster-image, .anime-poster img, .Image img');
+        // Título - buscar en varios lugares
+        var title = doc.querySelector('.anime-title, h1, .Title, .entry-title, .Ficha .Title');
+        
+        // Descripción - buscar en varios lugares
+        var description = doc.querySelector('.anime-synopsis p, .Description, .sinopsis, .Ficha .Description');
+        
+        // Portada
+        var cover = doc.querySelector('.poster-image, .anime-poster img, .Image img, .AnimeCover .Image img');
         var coverUrl = cover ? cover.getAttribute('src') : '';
         if (!coverUrl) {
             var metaCover = doc.querySelector('meta[property="og:image"]');
             coverUrl = metaCover ? metaCover.getAttribute('content') : '';
         }
         
+        // Géneros
         var genres = [];
         var genreElements = doc.querySelectorAll('.genre-tag, .genres a, .genre a, .generos a');
         genreElements.forEach(function(g) {
@@ -137,24 +154,29 @@ function getDetail(url) {
             if (text) genres.push(text);
         });
         
+        // Estado
         var status = 'ongoing';
         var bodyText = doc.body ? doc.body.textContent : '';
         if (bodyText.includes('Finalizado') || bodyText.includes('Completado')) {
             status = 'completed';
         }
         
-        return {
-            id: url.split('/').pop(),
-            title: title ? title.textContent.trim() : 'Sin título',
-            url: url,
-            cover: coverUrl,
-            coverHeaders: { Referer: REFERER },
-            description: description ? description.textContent.trim() : '',
-            status: status,
-            genres: genres,
-            type: 'anime',
-            sourceId: SOURCE_ID
-        };
+        // Obtener episodios
+        return getEpisodes(url).then(function(episodes) {
+            return {
+                id: url.split('/').pop(),
+                title: title ? title.textContent.trim() : 'Sin título',
+                url: url,
+                cover: coverUrl,
+                coverHeaders: { Referer: REFERER },
+                description: description ? description.textContent.trim() : '',
+                status: status,
+                genres: genres,
+                type: 'anime',
+                sourceId: SOURCE_ID,
+                episodes: episodes
+            };
+        });
     });
 }
 
@@ -168,6 +190,7 @@ function getEpisodes(seriesUrl) {
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
+        // Buscar datos de episodios en el script JSON
         var scriptData = doc.querySelector('.animeflv-episodes-data');
         if (scriptData) {
             try {
@@ -175,7 +198,7 @@ function getEpisodes(seriesUrl) {
                 data.forEach(function(ep) {
                     episodes.push({
                         id: ep.post_id + '',
-                        title: 'Episode ' + ep.number,
+                        title: 'Episodio ' + ep.number,
                         number: ep.number,
                         url: ep.permalink,
                         date: ''
@@ -184,17 +207,18 @@ function getEpisodes(seriesUrl) {
             } catch(e) {}
         }
         
+        // Si no hay datos del script, buscar enlaces de episodios
         if (episodes.length === 0) {
-            var epLinks = doc.querySelectorAll('.episodes-grid .episode-number a, .ListCaps a');
+            var epLinks = doc.querySelectorAll('.episodes-grid .episode-number a, .ListCaps a, .episode a');
             epLinks.forEach(function(link) {
                 var href = link.getAttribute('href');
                 var num = link.textContent.trim();
-                if (href && num) {
+                if (href && num && !isNaN(num)) {
                     episodes.push({
                         id: href.split('/').pop(),
-                        title: 'Episode ' + num,
+                        title: 'Episodio ' + num,
                         number: parseInt(num) || 0,
-                        url: href,
+                        url: href.startsWith('http') ? href : SITE + href,
                         date: ''
                     });
                 }
@@ -216,9 +240,11 @@ function getVideoSources(episodeUrl) {
         var doc = parser.parseFromString(html, 'text/html');
         var sources = [];
         
+        // Buscar botones de servidores con data-src (Base64)
         var serverButtons = doc.querySelectorAll('.iframe_code[data-src]');
         serverButtons.forEach(function(button) {
             var encoded = button.getAttribute('data-src');
+            var label = button.textContent.trim() || 'Servidor';
             if (encoded) {
                 try {
                     var decoded = atob(encoded);
@@ -226,24 +252,30 @@ function getVideoSources(episodeUrl) {
                         sources.push({
                             url: decoded,
                             quality: 'default',
-                            type: 'embed'
+                            type: 'embed',
+                            label: label
                         });
                     }
                 } catch(e) {}
             }
         });
         
+        // Si no hay botones con data-src, buscar iframes
         if (sources.length === 0) {
             var iframe = doc.querySelector('#load, iframe[src]');
-            if (iframe && iframe.getAttribute('src')) {
-                sources.push({
-                    url: iframe.getAttribute('src'),
-                    quality: 'default',
-                    type: 'embed'
-                });
+            if (iframe) {
+                var src = iframe.getAttribute('src');
+                if (src) {
+                    sources.push({
+                        url: src,
+                        quality: 'default',
+                        type: 'embed',
+                        label: 'Servidor'
+                    });
+                }
             }
         }
         
         return sources;
     });
-                              }
+                                      }
