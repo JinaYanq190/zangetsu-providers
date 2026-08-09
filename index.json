@@ -5,7 +5,7 @@
     {
       "id": "tioanime",
       "name": "TioAnime",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "type": "anime",
       "lang": "es",
       "file": "providers/tioanime.js"
