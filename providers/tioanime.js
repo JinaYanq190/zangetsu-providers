@@ -11,11 +11,10 @@ function getInfo() {
         baseUrl: SITE,
         logo: SITE + '/assets/img/icon-32x32.png',
         type: 'anime',
-        version: '1.0.6'
+        version: '1.0.7'
     };
 }
 
-// ── HEADERS ──────────────────────────────────────────────────────────────────
 function _headers() {
     return {
         'User-Agent': UA,
@@ -26,17 +25,13 @@ function _headers() {
     };
 }
 
-// ── FETCH ────────────────────────────────────────────────────────────────────
 function _get(url) {
     return fetch(url, { headers: _headers() })
-        .then(function(r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            return r.text();
-        })
+        .then(function(r) { return r.text(); })
         .catch(function() { return ''; });
 }
 
-// ── SEARCH ──────────────────────────────────────────────────────────────────
+// ── SEARCH ────────────────────────────────────────────────────────────────────
 function search(query, page, opts) {
     var q = String(query || '').trim();
     if (q.length < 2) return Promise.resolve([]);
@@ -44,10 +39,11 @@ function search(query, page, opts) {
     
     return _get(url).then(function(html) {
         var items = [];
-        if (!html || html.length < 100) return items;
+        if (!html || html.length < 500) return items;
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
+        // Buscar en .animes .anime
         var articles = doc.querySelectorAll('.animes .anime, .list-unstyled .anime');
         articles.forEach(function(article) {
             var link = article.querySelector('a[href*="/anime/"]');
@@ -70,19 +66,44 @@ function search(query, page, opts) {
             }
         });
         
+        // Si no hay resultados, buscar en .anime (sin el plural)
+        if (items.length === 0) {
+            var altArticles = doc.querySelectorAll('.anime, article');
+            altArticles.forEach(function(article) {
+                var link = article.querySelector('a[href*="/anime/"]');
+                var title = article.querySelector('.title, h3');
+                var img = article.querySelector('img');
+                
+                if (link && title) {
+                    var href = link.getAttribute('href');
+                    var fullUrl = href.startsWith('http') ? href : SITE + href;
+                    
+                    items.push({
+                        id: href.split('/').pop(),
+                        title: title.textContent.trim(),
+                        cover: img ? img.getAttribute('src') || img.getAttribute('data-src') : '',
+                        coverHeaders: { Referer: REFERER },
+                        url: fullUrl,
+                        type: 'anime',
+                        sourceId: SOURCE_ID
+                    });
+                }
+            });
+        }
+        
         return items;
     });
 }
 
-// ── HOME ────────────────────────────────────────────────────────────────────
+// ── HOME ──────────────────────────────────────────────────────────────────────
 function getHome(opts) {
     return _get(SITE + '/').then(function(html) {
         var items = [];
-        if (!html || html.length < 100) return [];
+        if (!html || html.length < 500) return [];
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
-        // Últimos episodios
+        // Últimos episodios - selectores correctos
         var episodes = doc.querySelectorAll('.episodes .episode, .list-unstyled .episode');
         episodes.forEach(function(ep) {
             var link = ep.querySelector('a[href*="/ver/"]');
@@ -133,18 +154,18 @@ function getHome(opts) {
     });
 }
 
-// ── DETAIL ──────────────────────────────────────────────────────────────────
+// ── DETAIL ────────────────────────────────────────────────────────────────────
 function getDetail(url, opts) {
     var slug = String(url).split('/').pop();
     return _get(url).then(function(html) {
-        if (!html || html.length < 100) {
+        if (!html || html.length < 500) {
             return { id: slug, title: 'Sin título', url: url, episodes: [] };
         }
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
         var title = doc.querySelector('h1.title, .anime-single h1.title');
-        var description = doc.querySelector('.sinopsis, .anime-single .sinopsis');
+        var description = doc.querySelector('.sinopsis, .anime-single .sinopsis, .description');
         var cover = doc.querySelector('.thumb img, .anime-single .thumb img');
         var coverUrl = cover ? cover.getAttribute('src') : '';
         if (!coverUrl) {
@@ -159,10 +180,6 @@ function getDetail(url, opts) {
             if (text) genres.push(text);
         });
         
-        var year = doc.querySelector('.year');
-        var type = doc.querySelector('.anime-type-peli');
-        var status = doc.querySelector('.status');
-        
         return getEpisodes(url, opts).then(function(episodes) {
             return {
                 id: slug,
@@ -171,11 +188,10 @@ function getDetail(url, opts) {
                 cover: coverUrl,
                 coverHeaders: { Referer: REFERER },
                 description: description ? description.textContent.trim() : '',
-                status: status ? status.textContent.trim() : 'ongoing',
+                status: 'ongoing',
                 genres: genres,
-                type: type ? type.textContent.trim() : 'Anime',
+                type: 'Anime',
                 sourceId: SOURCE_ID,
-                year: year ? year.textContent.trim() : '',
                 episodes: episodes,
                 subCount: episodes.length,
                 dubCount: 0
@@ -188,7 +204,7 @@ function getDetail(url, opts) {
 function getEpisodes(url, opts) {
     return _get(url).then(function(html) {
         var episodes = [];
-        if (!html || html.length < 100) return episodes;
+        if (!html || html.length < 500) return episodes;
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
@@ -218,7 +234,7 @@ function getEpisodes(url, opts) {
 function getVideoSources(episodeUrl, opts) {
     return _get(episodeUrl).then(function(html) {
         var sources = [];
-        if (!html || html.length < 100) return sources;
+        if (!html || html.length < 500) return sources;
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
@@ -238,15 +254,12 @@ function getVideoSources(episodeUrl, opts) {
                                     var serverName = parts[1];
                                     var videoUrl = parts[2];
                                     if (videoUrl && videoUrl.startsWith('http')) {
-                                        // Usar extractVideo para resolver el embed
-                                        try {
-                                            sources.push({
-                                                url: videoUrl,
-                                                quality: 'default',
-                                                type: 'embed',
-                                                label: serverName
-                                            });
-                                        } catch(e) {}
+                                        sources.push({
+                                            url: videoUrl,
+                                            quality: 'default',
+                                            type: 'embed',
+                                            label: serverName
+                                        });
                                     }
                                 }
                             });
@@ -274,4 +287,4 @@ function getVideoSources(episodeUrl, opts) {
         
         return sources;
     });
-                }
+                                 }
