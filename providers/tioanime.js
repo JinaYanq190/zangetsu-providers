@@ -11,23 +11,17 @@ function getInfo() {
         baseUrl: SITE,
         logo: SITE + '/assets/img/icon-32x32.png',
         type: 'anime',
-        version: '1.0.3'
+        version: '1.0.5'
     };
 }
 
-// Headers más realistas para evitar bloqueos
 function _headers() {
     return {
         'User-Agent': UA,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, br',
         'Referer': REFERER,
-        'Connection': 'keep-alive',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'same-origin',
-        'Upgrade-Insecure-Requests': '1'
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'es-ES,es;q=0.8',
+        'Connection': 'keep-alive'
     };
 }
 
@@ -45,7 +39,6 @@ function search(query, page, opts) {
     
     return _get(url).then(function(html) {
         var items = [];
-        if (!html) return items;
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
@@ -79,7 +72,6 @@ function search(query, page, opts) {
 function getHome(opts) {
     return _get(SITE + '/').then(function(html) {
         var items = [];
-        if (!html) return [];
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
@@ -138,7 +130,6 @@ function getHome(opts) {
 function getDetail(url) {
     var slug = String(url).split('/').pop();
     return _get(url).then(function(html) {
-        if (!html) return { id: slug, title: 'Sin título', url: url, episodes: [] };
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
@@ -168,7 +159,7 @@ function getDetail(url) {
                 description: description ? description.textContent.trim() : '',
                 status: 'ongoing',
                 genres: genres,
-                type: 'Anime',
+                type: 'anime',
                 sourceId: SOURCE_ID,
                 episodes: episodes
             };
@@ -180,7 +171,6 @@ function getDetail(url) {
 function getEpisodes(seriesUrl) {
     return _get(seriesUrl).then(function(html) {
         var episodes = [];
-        if (!html) return episodes;
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
@@ -210,7 +200,6 @@ function getEpisodes(seriesUrl) {
 function getVideoSources(episodeUrl) {
     return _get(episodeUrl).then(function(html) {
         var sources = [];
-        if (!html) return sources;
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
@@ -263,4 +252,4 @@ function getVideoSources(episodeUrl) {
         
         return sources;
     });
-                          }
+                         }
