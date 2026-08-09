@@ -1,14 +1,14 @@
 {
-  "name": "AnimeFLV Provider",
-  "description": "Provider para ver anime en AnimeFLV",
+  "name": "Zangetsu Providers",
+  "description": "Streaming sources for the Zangetsu app.",
   "sources": [
     {
-      "id": "animeflv",
-      "name": "AnimeFLV",
+      "id": "jkanime",
+      "name": "Jkanime",
       "version": "1.0.0",
       "type": "anime",
       "lang": "es",
-      "file": "providers/animeflv.js"
+      "file": "providers/jkanime.js"
     }
   ]
 }
