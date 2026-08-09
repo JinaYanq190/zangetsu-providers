@@ -11,10 +11,11 @@ function getInfo() {
         baseUrl: SITE,
         logo: SITE + '/assets/img/icon-32x32.png',
         type: 'anime',
-        version: '1.0.5'
+        version: '1.0.6'
     };
 }
 
+// ── HEADERS ──────────────────────────────────────────────────────────────────
 function _headers() {
     return {
         'User-Agent': UA,
@@ -25,13 +26,17 @@ function _headers() {
     };
 }
 
+// ── FETCH ────────────────────────────────────────────────────────────────────
 function _get(url) {
     return fetch(url, { headers: _headers() })
-        .then(function(r) { return r.text(); })
+        .then(function(r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+        })
         .catch(function() { return ''; });
 }
 
-// ── SEARCH ────────────────────────────────────────────────────────────────────
+// ── SEARCH ──────────────────────────────────────────────────────────────────
 function search(query, page, opts) {
     var q = String(query || '').trim();
     if (q.length < 2) return Promise.resolve([]);
@@ -39,6 +44,7 @@ function search(query, page, opts) {
     
     return _get(url).then(function(html) {
         var items = [];
+        if (!html || html.length < 100) return items;
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
@@ -68,10 +74,11 @@ function search(query, page, opts) {
     });
 }
 
-// ── HOME ──────────────────────────────────────────────────────────────────────
+// ── HOME ────────────────────────────────────────────────────────────────────
 function getHome(opts) {
     return _get(SITE + '/').then(function(html) {
         var items = [];
+        if (!html || html.length < 100) return [];
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
@@ -126,10 +133,13 @@ function getHome(opts) {
     });
 }
 
-// ── DETAIL ────────────────────────────────────────────────────────────────────
-function getDetail(url) {
+// ── DETAIL ──────────────────────────────────────────────────────────────────
+function getDetail(url, opts) {
     var slug = String(url).split('/').pop();
     return _get(url).then(function(html) {
+        if (!html || html.length < 100) {
+            return { id: slug, title: 'Sin título', url: url, episodes: [] };
+        }
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
@@ -149,7 +159,11 @@ function getDetail(url) {
             if (text) genres.push(text);
         });
         
-        return getEpisodes(url).then(function(episodes) {
+        var year = doc.querySelector('.year');
+        var type = doc.querySelector('.anime-type-peli');
+        var status = doc.querySelector('.status');
+        
+        return getEpisodes(url, opts).then(function(episodes) {
             return {
                 id: slug,
                 title: title ? title.textContent.trim() : 'Sin título',
@@ -157,20 +171,24 @@ function getDetail(url) {
                 cover: coverUrl,
                 coverHeaders: { Referer: REFERER },
                 description: description ? description.textContent.trim() : '',
-                status: 'ongoing',
+                status: status ? status.textContent.trim() : 'ongoing',
                 genres: genres,
-                type: 'anime',
+                type: type ? type.textContent.trim() : 'Anime',
                 sourceId: SOURCE_ID,
-                episodes: episodes
+                year: year ? year.textContent.trim() : '',
+                episodes: episodes,
+                subCount: episodes.length,
+                dubCount: 0
             };
         });
     });
 }
 
 // ── EPISODES ──────────────────────────────────────────────────────────────────
-function getEpisodes(seriesUrl) {
-    return _get(seriesUrl).then(function(html) {
+function getEpisodes(url, opts) {
+    return _get(url).then(function(html) {
         var episodes = [];
+        if (!html || html.length < 100) return episodes;
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
@@ -197,9 +215,10 @@ function getEpisodes(seriesUrl) {
 }
 
 // ── VIDEO SOURCES ─────────────────────────────────────────────────────────────
-function getVideoSources(episodeUrl) {
+function getVideoSources(episodeUrl, opts) {
     return _get(episodeUrl).then(function(html) {
         var sources = [];
+        if (!html || html.length < 100) return sources;
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         
@@ -219,12 +238,15 @@ function getVideoSources(episodeUrl) {
                                     var serverName = parts[1];
                                     var videoUrl = parts[2];
                                     if (videoUrl && videoUrl.startsWith('http')) {
-                                        sources.push({
-                                            url: videoUrl,
-                                            quality: 'default',
-                                            type: 'embed',
-                                            label: serverName
-                                        });
+                                        // Usar extractVideo para resolver el embed
+                                        try {
+                                            sources.push({
+                                                url: videoUrl,
+                                                quality: 'default',
+                                                type: 'embed',
+                                                label: serverName
+                                            });
+                                        } catch(e) {}
                                     }
                                 }
                             });
@@ -234,7 +256,7 @@ function getVideoSources(episodeUrl) {
             }
         });
         
-        // Buscar iframe
+        // Si no hay videos en el script, buscar iframe
         if (sources.length === 0) {
             var iframe = doc.querySelector('iframe[src*="player"], iframe[src*="embed"], iframe[src*="mega"], iframe[src*="voe"]');
             if (iframe) {
@@ -252,4 +274,4 @@ function getVideoSources(episodeUrl) {
         
         return sources;
     });
-                         }
+                }
