@@ -1,10 +1,12 @@
-[
-    {
-        "id": "animeflv",
-        "name": "AnimeFLV",
-        "lang": "es",
-        "type": "anime",
-        "version": "1.0.0",
-        "url": "https://raw.githubusercontent.com/Jinayang190/zangetsu-providers/main/animeflv.js"
-    }
-]
+{
+    "sources": [
+        {
+            "id": "animeflv",
+            "name": "AnimeFLV",
+            "lang": "es",
+            "type": "anime",
+            "version": "1.0.0",
+            "url": "https://raw.githubusercontent.com/Jinayang190/zangetsu-providers/main/animeflv.js"
+        }
+    ]
+}
